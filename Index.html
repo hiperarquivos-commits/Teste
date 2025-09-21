@@ -3,8 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Clone iFood Avançado</title>
+<title>Clone iFood Avançado com Mapa</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 </head>
 <body class="bg-gray-100 font-sans">
 
@@ -20,65 +22,48 @@
   <!-- Categorias -->
   <section class="p-4">
     <h2 class="text-xl font-semibold mb-2">Categorias</h2>
-    <div id="categories" class="flex gap-4 overflow-x-auto pb-2">
-      <!-- Categorias geradas pelo JS -->
-    </div>
+    <div id="categories" class="flex gap-4 overflow-x-auto pb-2"></div>
   </section>
 
   <!-- Restaurantes -->
   <section class="p-4">
     <h2 class="text-xl font-semibold mb-2">Restaurantes</h2>
-    <div id="restaurants" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-      <!-- Cards de restaurantes -->
-    </div>
+    <div id="restaurants" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
+  </section>
+
+  <!-- Cardápio + Mapa -->
+  <section id="menu-section" class="p-4 hidden">
+    <h2 id="menu-title" class="text-xl font-bold mb-4"></h2>
+    <div id="menu-items" class="grid gap-2 mb-4"></div>
+    <div id="map" class="h-48 w-full rounded shadow mb-4"></div>
+    <button class="mt-4 bg-gray-500 text-white px-4 py-2 rounded" onclick="closeMenu()">Voltar</button>
   </section>
 
 </main>
 
 <!-- Carrinho -->
-<section class="fixed bottom-4 right-4 bg-white p-4 rounded shadow w-72 max-w-full" id="cart">
+<section class="fixed bottom-4 right-4 bg-white p-4 rounded shadow w-80 max-w-full" id="cart">
   <h2 class="font-bold text-lg mb-2">Carrinho</h2>
   <ul id="cart-items" class="mb-2"></ul>
   <p>Total: R$ <span id="cart-total">0.00</span></p>
   <button class="bg-green-600 text-white px-4 py-2 rounded mt-2 w-full" onclick="checkout()">Finalizar Pedido</button>
+  <p id="order-status" class="mt-2 text-sm text-gray-600"></p>
 </section>
 
 <script>
+// Dados de exemplo com localização (lat/lng simuladas)
 const restaurantsData = [
-  {
-    id: 1, name: "Lanchonete Express", category: "Lanches",
-    products: [
-      { id: 101, name: "X-Burguer", price: 15.0 },
-      { id: 102, name: "Batata Frita", price: 8.0 },
-      { id: 103, name: "Cachorro Quente", price: 12.0 }
-    ]
-  },
-  {
-    id: 2, name: "Sushi House", category: "Japonesa",
-    products: [
-      { id: 201, name: "Sushi Mix", price: 40.0 },
-      { id: 202, name: "Temaki", price: 20.0 }
-    ]
-  },
-  {
-    id: 3, name: "Pizza Mania", category: "Pizza",
-    products: [
-      { id: 301, name: "Pizza Calabresa", price: 35.0 },
-      { id: 302, name: "Pizza Mussarela", price: 30.0 }
-    ]
-  },
-  {
-    id: 4, name: "Doce Sabor", category: "Sobremesas",
-    products: [
-      { id: 401, name: "Bolo de Chocolate", price: 15.0 },
-      { id: 402, name: "Sorvete", price: 10.0 }
-    ]
-  }
+  { id: 1, name: "Lanchonete Express", category: "Lanches", lat: -23.5505, lng: -46.6333,
+    products: [{ id: 101, name: "X-Burguer", price: 15.0 }, { id: 102, name: "Batata Frita", price: 8.0 }] },
+  { id: 2, name: "Sushi House", category: "Japonesa", lat: -23.5510, lng: -46.6340,
+    products: [{ id: 201, name: "Sushi Mix", price: 40.0 }, { id: 202, name: "Temaki", price: 20.0 }] },
+  { id: 3, name: "Pizza Mania", category: "Pizza", lat: -23.5520, lng: -46.6350,
+    products: [{ id: 301, name: "Pizza Calabresa", price: 35.0 }, { id: 302, name: "Pizza Mussarela", price: 30.0 }] }
 ];
 
-const cart = [];
+let cart = JSON.parse(localStorage.getItem("cart")) || [];
+let map, restaurantMarker;
 
-// Renderização das categorias
 function renderCategories() {
   const container = document.getElementById("categories");
   const categories = [...new Set(restaurantsData.map(r => r.category))];
@@ -92,13 +77,12 @@ function renderCategories() {
   });
 }
 
-// Renderização de restaurantes
 function renderRestaurants(restaurants) {
   const container = document.getElementById("restaurants");
   container.innerHTML = "";
   restaurants.forEach(r => {
     const card = document.createElement("div");
-    card.className = "bg-white p-4 rounded shadow";
+    card.className = "bg-white p-4 rounded shadow transition transform hover:scale-105";
     card.innerHTML = `
       <h3 class="font-bold text-lg mb-1">${r.name}</h3>
       <p class="text-gray-600 mb-2">${r.category}</p>
@@ -108,23 +92,23 @@ function renderRestaurants(restaurants) {
   });
 }
 
-// Filtrar por categoria
 function filterByCategory(cat) {
   renderRestaurants(restaurantsData.filter(r => r.category === cat));
 }
 
-// Filtrar por busca
 function filterRestaurants() {
   const query = document.getElementById("search").value.toLowerCase();
-  const filtered = restaurantsData.filter(r => r.name.toLowerCase().includes(query));
-  renderRestaurants(filtered);
+  renderRestaurants(restaurantsData.filter(r => r.name.toLowerCase().includes(query)));
 }
 
-// Visualizar cardápio do restaurante
 function viewMenu(id) {
   const restaurant = restaurantsData.find(r => r.id === id);
-  const container = document.getElementById("restaurants");
-  container.innerHTML = `<h2 class="text-xl font-bold mb-4">${restaurant.name} - Cardápio</h2>`;
+  document.getElementById("restaurants").parentElement.style.display = "none";
+  document.getElementById("menu-section").classList.remove("hidden");
+  document.getElementById("menu-title").textContent = `${restaurant.name} - Cardápio`;
+
+  const menuContainer = document.getElementById("menu-items");
+  menuContainer.innerHTML = "";
   restaurant.products.forEach(p => {
     const item = document.createElement("div");
     item.className = "bg-white p-2 rounded shadow mb-2 flex justify-between items-center";
@@ -135,13 +119,25 @@ function viewMenu(id) {
         <button class="bg-green-600 text-white px-2 py-1 rounded" onclick="addToCart(${p.id}, ${p.price}, '${p.name}')">Adicionar</button>
       </div>
     `;
-    container.appendChild(item);
+    menuContainer.appendChild(item);
   });
-  container.innerHTML += `<button class="mt-4 bg-gray-500 text-white px-4 py-2 rounded" onclick="renderRestaurants(restaurantsData)">Voltar</button>`;
+
+  // Inicializar mapa
+  if(!map){
+    map = L.map('map').setView([restaurant.lat, restaurant.lng], 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+  }
+  if(restaurantMarker) map.removeLayer(restaurantMarker);
+  restaurantMarker = L.marker([restaurant.lat, restaurant.lng]).addTo(map)
+    .bindPopup(`${restaurant.name}`).openPopup();
 }
 
-// Adicionar ao carrinho
-function addToCart(id, price, name) {
+function closeMenu(){
+  document.getElementById("menu-section").classList.add("hidden");
+  document.getElementById("restaurants").parentElement.style.display = "block";
+}
+
+function addToCart(id, price, name){
   const qty = parseInt(document.getElementById(`qty-${id}`).value);
   const existing = cart.find(item => item.id === id);
   if(existing){
@@ -149,11 +145,11 @@ function addToCart(id, price, name) {
   } else {
     cart.push({ id, price, name, qty });
   }
+  localStorage.setItem("cart", JSON.stringify(cart));
   renderCart();
 }
 
-// Renderizar carrinho
-function renderCart() {
+function renderCart(){
   const list = document.getElementById("cart-items");
   const totalEl = document.getElementById("cart-total");
   list.innerHTML = "";
@@ -171,28 +167,29 @@ function renderCart() {
   totalEl.textContent = total.toFixed(2);
 }
 
-// Remover item do carrinho
 function removeFromCart(index){
   cart.splice(index,1);
+  localStorage.setItem("cart", JSON.stringify(cart));
   renderCart();
 }
 
-// Finalizar pedido
-function checkout() {
-  if(cart.length === 0){
+function checkout(){
+  if(cart.length===0){
     alert("Seu carrinho está vazio!");
     return;
   }
-  alert("Pedido finalizado!\nTotal: R$ " + cart.reduce((a,b)=>a+b.price*b.qty,0).toFixed(2));
-  cart.length = 0;
+  document.getElementById("order-status").textContent = "Pedido recebido! Preparando...";
+  setTimeout(()=>document.getElementById("order-status").textContent="Pedido a caminho!",3000);
+  setTimeout(()=>document.getElementById("order-status").textContent="Pedido entregue!",6000);
+  cart.length=0;
+  localStorage.setItem("cart", JSON.stringify(cart));
   renderCart();
-  renderRestaurants(restaurantsData);
 }
 
-// Inicialização
 renderCategories();
 renderRestaurants(restaurantsData);
+renderCart();
 
 </script>
 </body>
-  </html>
+</html>
