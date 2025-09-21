@@ -1,321 +1,115 @@
-<!doctype html>
-<html lang="pt-BR">
+<!DOCTYPE html><html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Entregador - Mock iFood (Single File)</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>App Entregador</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-sA+e2p6p2Hk8f6wG2b3hZ6k3s7k9P+0Jv+v0s5f5wY0=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    /* Small custom adjustments */
-    #map { height: 60vh; min-height: 320px; }
-    .card { -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
-    .pill { border-radius: 9999px; }
+    #map { height: 300px; }
   </style>
 </head>
-<body class="bg-gray-100 text-gray-800">
-  <div class="max-w-5xl mx-auto p-4">
-    <header class="flex items-center justify-between mb-4">
-      <h1 class="text-2xl font-bold">Entregador • Mock iFood</h1>
-      <div class="flex items-center gap-3">
-        <div class="text-sm text-gray-600">Saldo: <strong id="saldo">R$ 0,00</strong></div>
-        <button id="toggleOrders" class="px-3 py-1 bg-white border rounded shadow-sm">Alternar Pedidos</button>
-      </div>
-    </header><main class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-  <!-- Map + controls -->
-  <section class="lg:col-span-2 space-y-4">
-    <div id="map" class="rounded-lg overflow-hidden border"></div>
-
-    <div class="card bg-white p-4 rounded-lg shadow">
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="font-semibold text-lg" id="activeTitle">Nenhum pedido ativo</h2>
-          <p class="text-sm text-gray-500" id="activeSubtitle">Aguarde um pedido ou abra a lista.</p>
-        </div>
-        <div class="text-right">
-          <div class="text-sm text-gray-500">Tempo previsto</div>
-          <div class="font-medium" id="activeEta">--</div>
-        </div>
-      </div>
-
-      <div class="mt-4 flex items-center gap-3">
-        <button id="rejectBtn" class="flex-1 text-white bg-red-600 px-4 py-2 rounded">Rejeitar</button>
-        <button id="acceptBtn" class="flex-1 text-white bg-green-600 px-4 py-2 rounded">Aceitar</button>
-        <div class="w-20 text-center text-sm text-gray-500"><span id="acceptTimer">--</span></div>
-      </div>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen">  <!-- Login -->  <div id="loginScreen" class="flex items-center justify-center h-screen">
+    <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl w-80">
+      <h1 class="text-xl font-bold mb-4 text-center">Login do Entregador</h1>
+      <input id="username" type="text" placeholder="Usuário" class="w-full p-2 mb-2 border rounded">
+      <input id="password" type="password" placeholder="Senha" class="w-full p-2 mb-4 border rounded">
+      <button onclick="login()" class="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded">Entrar</button>
     </div>
+  </div>  <!-- Dashboard -->  <div id="dashboard" class="hidden p-4 space-y-4">
+    <div class="flex justify-between items-center">
+      <h2 class="text-lg font-bold">Bem-vindo, <span id="userDisplay"></span></h2>
+      <button onclick="toggleDarkMode()" class="bg-gray-700 text-white px-3 py-1 rounded">🌙</button>
+    </div><div class="grid grid-cols-2 gap-4">
+  <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
+    <p class="text-gray-500">Saldo</p>
+    <h2 id="saldo" class="text-2xl font-bold">R$ 0,00</h2>
+  </div>
+  <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
+    <p class="text-gray-500">Entregas</p>
+    <h2 id="totalEntregas" class="text-2xl font-bold">0</h2>
+  </div>
+</div>
 
-  </section>
+<!-- Mapa -->
+<div id="map" class="rounded-xl shadow"></div>
 
-  <!-- Orders list / Details -->
-  <aside class="space-y-4">
-    <div class="bg-white p-3 rounded-lg shadow">
-      <div class="flex items-center justify-between mb-2">
-        <div class="font-semibold">Pedidos Disponíveis</div>
-        <div class="text-sm text-gray-500">Atualizado</div>
-      </div>
-      <div id="ordersList" class="space-y-2 max-h-[60vh] overflow-auto"></div>
-    </div>
+<!-- Pedido atual -->
+<div id="pedidoAtual" class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow hidden">
+  <h3 class="font-bold mb-2">Novo Pedido</h3>
+  <p id="pedidoInfo"></p>
+  <div class="flex gap-2 mt-2">
+    <button onclick="aceitarPedido()" class="flex-1 bg-green-500 text-white p-2 rounded">Aceitar</button>
+    <button onclick="rejeitarPedido()" class="flex-1 bg-red-500 text-white p-2 rounded">Rejeitar</button>
+  </div>
+</div>
 
-    <div class="bg-white p-3 rounded-lg shadow">
-      <div class="flex items-center justify-between">
-        <div>
-          <div class="text-sm text-gray-500">Rota para Moto</div>
-          <div class="font-medium" id="distDisplay">Distância: --</div>
-          <div class="text-sm text-gray-500" id="timeDisplay">Tempo aprox: --</div>
-        </div>
-        <div class="text-right">
-          <div class="text-sm text-gray-500">Possibilidade de devolução</div>
-          <div id="canReturn" class="font-medium">--</div>
-        </div>
-      </div>
-    </div>
+<!-- Histórico -->
+<div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
+  <h3 class="font-bold mb-2">Histórico de Entregas</h3>
+  <ul id="historico" class="space-y-2 text-sm"></ul>
+</div>
 
-    <div class="bg-white p-3 rounded-lg shadow text-sm">
-      <div class="font-semibold mb-2">Histórico</div>
-      <ul id="history" class="list-disc list-inside text-gray-600"></ul>
-    </div>
-  </aside>
-
-</main>
-
-<footer class="mt-6 text-center text-xs text-gray-500">Este é um mock-front-end: não tem backend. Use como protótipo.</footer>
-
-  </div>  <!-- Dependencies -->  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-o9N1j7xgk3k2k2oJgq0q1b8rY2mZqv2bGkR3P3f3G3k=" crossorigin=""></script>  <script>
-    // ====== Dados simulados ======
-    const pedidos = [
-      {
-        id: 'P-001', price: 21.19, shop: 'KFC - Shopping CG', pickup: [-20.4878, -54.6201], dropoff: [-20.4660, -54.6160], bairro: 'Vila Margarida', canReturn: true
-      },
-      {
-        id: 'P-002', price: 14.50, shop: 'Habib\'s Centro', pickup: [-20.4895, -54.6290], dropoff: [-20.4720, -54.6185], bairro: 'Centro', canReturn: false
-      },
-      {
-        id: 'P-003', price: 9.30, shop: 'Padaria Pão Doce', pickup: [-20.4950, -54.6275], dropoff: [-20.4605, -54.6242], bairro: 'Chácara', canReturn: true
-      }
-    ];
-
-    // ====== Utilitários ======
-    function formatBR(value) {
-      return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    }
-
-    function haversine([lat1, lon1], [lat2, lon2]){
-      const toRad = v => v * Math.PI/180;
-      const R = 6371; // km
-      const dLat = toRad(lat2-lat1);
-      const dLon = toRad(lon2-lon1);
-      const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      return R * c;
-    }
-
-    // ====== Estado ======
+  </div>  <script>
     let saldo = 0;
-    let activeOrder = null;
-    let acceptCountdown = null;
-    let acceptTimeLeft = 30; // seconds
+    let totalEntregas = 0;
+    let historico = [];
+    let map, marker;
 
-    // ====== Mapa ======
-    const map = L.map('map').setView([-20.48, -54.62], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
-
-    const markers = {};
-    const poly = L.polyline([], { weight: 4 }).addTo(map);
-
-    function renderOrdersList(){
-      const container = document.getElementById('ordersList');
-      container.innerHTML = '';
-      pedidos.forEach(p => {
-        const el = document.createElement('div');
-        el.className = 'p-2 border rounded bg-gray-50';
-        el.innerHTML = `
-          <div class=\"flex items-center justify-between\">
-            <div>
-              <div class=\"font-semibold\">${p.shop}</div>
-              <div class=\"text-xs text-gray-500\">${p.bairro} • ${formatBR(p.price)}</div>
-            </div>
-            <div class=\"flex flex-col items-end gap-1\">
-              <button class=\"accept inline-block text-sm px-3 py-1 bg-green-600 text-white rounded\" data-id=\"${p.id}\">Aceitar</button>
-              <button class=\"view inline-block text-sm px-3 py-1 bg-white border rounded\" data-id=\"${p.id}\">Ver</button>
-            </div>
-          </div>
-        `;
-        container.appendChild(el);
-      });
-
-      // attach listeners
-      document.querySelectorAll('.accept').forEach(b => b.addEventListener('click', (e)=>{
-        const id = e.currentTarget.dataset.id; startAccepting(id);
-      }));
-      document.querySelectorAll('.view').forEach(b => b.addEventListener('click', (e)=>{
-        const id = e.currentTarget.dataset.id; previewOrder(id);
-      }));
+    function login(){
+      const user = document.getElementById('username').value;
+      document.getElementById('userDisplay').innerText = user;
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('dashboard').classList.remove('hidden');
+      initMap();
+      simularPedidos();
     }
 
-    function previewOrder(id){
-      const p = pedidos.find(x=>x.id===id);
-      if(!p) return;
-      focusRoute(p);
-      setActiveCard(p, 'preview');
+    function initMap(){
+      map = L.map('map').setView([-20.4697, -54.6201], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
     }
 
-    function startAccepting(id){
-      const p = pedidos.find(x=>x.id===id);
-      if(!p) return;
-      activeOrder = p;
-      acceptTimeLeft = 30;
-      document.getElementById('acceptTimer').textContent = `${acceptTimeLeft}s`;
-      document.getElementById('acceptBtn').disabled = false;
-      document.getElementById('rejectBtn').disabled = false;
-      // show route on map
-      focusRoute(p);
-      setActiveCard(p, 'confirm');
-
-      if(acceptCountdown) clearInterval(acceptCountdown);
-      acceptCountdown = setInterval(()=>{
-        acceptTimeLeft -= 1;
-        document.getElementById('acceptTimer').textContent = `${acceptTimeLeft}s`;
-        if(acceptTimeLeft <= 0){
-          clearInterval(acceptCountdown);
-          rejectActive('Tempo esgotado');
+    function simularPedidos(){
+      setInterval(()=>{
+        if(Math.random() > 0.5){
+          document.getElementById('pedidoAtual').classList.remove('hidden');
+          document.getElementById('pedidoInfo').innerText = "Retirada no KFC - Shopping CG → Entrega Vila Margarida (R$ 21,19)";
+          if(marker) map.removeLayer(marker);
+          marker = L.marker([-20.468, -54.620]).addTo(map).bindPopup("Pedido KFC").openPopup();
         }
-      }, 1000);
+      },10000);
     }
 
-    function acceptActive(){
-      if(!activeOrder) return;
-      clearInterval(acceptCountdown);
-      // simulate pickup-drive-dropoff
-      const p = activeOrder;
-      document.getElementById('activeTitle').textContent = `Em rota: ${p.shop}`;
-      document.getElementById('activeSubtitle').textContent = `Entrega: ${p.bairro} • ${formatBR(p.price)}`;
-      document.getElementById('canReturn').textContent = p.canReturn ? 'Sim' : 'Não';
-      document.getElementById('acceptBtn').disabled = true;
-      document.getElementById('rejectBtn').textContent = 'Cancelar';
+    function aceitarPedido(){
+      saldo += 21.19;
+      totalEntregas++;
+      historico.push({valor:21.19, destino:"Vila Margarida"});
+      atualizarDashboard();
+      document.getElementById('pedidoAtual').classList.add('hidden');
+    }
 
-      // simulate progress
-      simulateDelivery(p).then(() => {
-        saldo += p.price;
-        document.getElementById('saldo').textContent = formatBR(saldo);
-        document.getElementById('history').innerHTML = `<li>${p.id} - ${p.shop} — ${formatBR(p.price)}</li>` + document.getElementById('history').innerHTML;
-        // remove pedido from list
-        const idx = pedidos.findIndex(x=>x.id===p.id);
-        if(idx>=0) pedidos.splice(idx,1);
-        activeOrder = null;
-        poly.setLatLngs([]);
-        Object.values(markers).forEach(m=>map.removeLayer(m));
-        Object.keys(markers).forEach(k=>delete markers[k]);
-        renderOrdersList();
-        setActiveCard(null, 'done');
+    function rejeitarPedido(){
+      document.getElementById('pedidoAtual').classList.add('hidden');
+    }
+
+    function atualizarDashboard(){
+      document.getElementById('saldo').innerText = `R$ ${saldo.toFixed(2)}`;
+      document.getElementById('totalEntregas').innerText = totalEntregas;
+      const lista = document.getElementById('historico');
+      lista.innerHTML = '';
+      historico.forEach((h,i)=>{
+        const li = document.createElement('li');
+        li.innerText = `Entrega ${i+1}: ${h.destino} - R$ ${h.valor.toFixed(2)}`;
+        lista.appendChild(li);
       });
     }
 
-    function rejectActive(reason){
-      clearInterval(acceptCountdown);
-      document.getElementById('acceptTimer').textContent = '--';
-      document.getElementById('acceptBtn').disabled = false;
-      document.getElementById('rejectBtn').disabled = false;
-      activeOrder = null;
-      poly.setLatLngs([]);
-      Object.values(markers).forEach(m=>map.removeLayer(m));
-      Object.keys(markers).forEach(k=>delete markers[k]);
-      document.getElementById('activeTitle').textContent = 'Nenhum pedido ativo';
-      document.getElementById('activeSubtitle').textContent = reason || 'Aguarde um pedido ou abra a lista.';
-      renderOrdersList();
+    function toggleDarkMode(){
+      document.body.classList.toggle('dark');
     }
-
-    function setActiveCard(p, mode){
-      if(!p){
-        document.getElementById('activeTitle').textContent = 'Nenhum pedido ativo';
-        document.getElementById('activeSubtitle').textContent = 'Aguarde um pedido ou abra a lista.';
-        document.getElementById('activeEta').textContent = '--';
-        document.getElementById('distDisplay').textContent = 'Distância: --';
-        document.getElementById('timeDisplay').textContent = 'Tempo aprox: --';
-        document.getElementById('canReturn').textContent = '--';
-        return;
-      }
-      const d1 = haversine(p.pickup, p.dropoff);
-      const speed = 30; // km/h average
-      const timeMin = Math.round((d1 / speed) * 60);
-      document.getElementById('activeEta').textContent = `${timeMin} min`;
-      document.getElementById('distDisplay').textContent = `Distância: ${d1.toFixed(2)} km`;
-      document.getElementById('timeDisplay').textContent = `Tempo aprox: ${timeMin} min`;
-      document.getElementById('canReturn').textContent = p.canReturn ? 'Sim' : 'Não';
-
-      if(mode === 'preview'){
-        document.getElementById('activeTitle').textContent = p.shop;
-        document.getElementById('activeSubtitle').textContent = `Retirada • Entrega: ${p.bairro} • ${formatBR(p.price)}`;
-      }
-
-      if(mode === 'confirm'){
-        document.getElementById('activeTitle').textContent = `Confirmar: ${p.shop}`;
-        document.getElementById('activeSubtitle').textContent = `Aceitar em ${acceptTimeLeft}s — ${formatBR(p.price)}`;
-      }
-    }
-
-    async function simulateDelivery(p){
-      // show both markers and polyline
-      poly.setLatLngs([p.pickup, p.dropoff]);
-
-      // add markers
-      addMarker('pickup', p.pickup, `Retirada: ${p.shop}`);
-      addMarker('dropoff', p.dropoff, `Entrega: ${p.bairro}`);
-      map.fitBounds(poly.getBounds().pad(0.5));
-
-      // simulate travel time (speed 30 km/h)
-      const d = haversine(p.pickup, p.dropoff);
-      const travelTimeMs = Math.max(5000, (d/30) * 3600 * 1000); // at least 5s
-
-      // move a marker along the line visually
-      const steps = 60;
-      const from = p.pickup; const to = p.dropoff;
-      let step = 0;
-      const moving = L.marker(from).addTo(map);
-      while(step < steps){
-        await new Promise(r => setTimeout(r, travelTimeMs/steps));
-        const lat = from[0] + (to[0]-from[0])*(step/steps);
-        const lng = from[1] + (to[1]-from[1])*(step/steps);
-        moving.setLatLng([lat,lng]);
-        step++;
-      }
-      map.removeLayer(moving);
-      return new Promise(r=>setTimeout(r, 800));
-    }
-
-    function addMarker(key, latlng, title){
-      if(markers[key]) map.removeLayer(markers[key]);
-      markers[key] = L.marker(latlng).addTo(map).bindPopup(title);
-    }
-
-    // ====== UI wiring ======
-    document.getElementById('toggleOrders').addEventListener('click', ()=>{
-      const el = document.getElementById('ordersList');
-      el.parentElement.classList.toggle('hidden');
-    });
-
-    document.getElementById('acceptBtn').addEventListener('click', ()=>{
-      if(activeOrder) acceptActive();
-    });
-    document.getElementById('rejectBtn').addEventListener('click', ()=>{
-      if(activeOrder) rejectActive('Pedido rejeitado pelo entregador');
-    });
-
-    // start
-    renderOrdersList();
-
-    // place city markers for all pedidos initial preview
-    pedidos.forEach((p, i)=>{
-      const m = L.circleMarker(p.pickup, { radius: 6 }).addTo(map).bindPopup(`${p.shop} — ${formatBR(p.price)}`);
-    });
-
-    // small UX: clicking on map clears selection
-    map.on('click', ()=>{ rejectActive('Seleção limpa'); });
-
-    // responsive tip
-    window.addEventListener('resize', ()=> map.invalidateSize());
-
   </script></body>
-  </html>
+</html>
