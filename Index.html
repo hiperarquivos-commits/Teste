@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="pt-BR">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -36,8 +36,8 @@
 <div id="map" class="rounded-xl shadow"></div>
 
 <!-- Pedido atual -->
-<div id="pedidoAtual" class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow hidden">
-  <h3 class="font-bold mb-2">Novo Pedido</h3>
+<div id="pedidoAtual" class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow hidden animate-bounce">
+  <h3 class="font-bold mb-2">Novo Pedido 📦</h3>
   <p id="pedidoInfo"></p>
   <div class="flex gap-2 mt-2">
     <button onclick="aceitarPedido()" class="flex-1 bg-green-500 text-white p-2 rounded">Aceitar</button>
@@ -51,7 +51,9 @@
   <ul id="historico" class="space-y-2 text-sm"></ul>
 </div>
 
-  </div>  <script>
+  </div><audio id="notifSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+
+  <script>
     let saldo = 0;
     let totalEntregas = 0;
     let historico = [];
@@ -64,6 +66,7 @@
       document.getElementById('dashboard').classList.remove('hidden');
       initMap();
       simularPedidos();
+      pedirPermissaoNotificacao();
     }
 
     function initMap(){
@@ -80,6 +83,8 @@
           document.getElementById('pedidoInfo').innerText = "Retirada no KFC - Shopping CG → Entrega Vila Margarida (R$ 21,19)";
           if(marker) map.removeLayer(marker);
           marker = L.marker([-20.468, -54.620]).addTo(map).bindPopup("Pedido KFC").openPopup();
+          tocarNotificacao();
+          mostrarNotificacao("Novo pedido disponível!", { body: "R$ 21,19 para Vila Margarida" });
         }
       },10000);
     }
@@ -110,6 +115,22 @@
 
     function toggleDarkMode(){
       document.body.classList.toggle('dark');
+    }
+
+    function tocarNotificacao(){
+      document.getElementById('notifSound').play();
+    }
+
+    function pedirPermissaoNotificacao(){
+      if ("Notification" in window && Notification.permission !== "granted") {
+        Notification.requestPermission();
+      }
+    }
+
+    function mostrarNotificacao(titulo, opcoes){
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(titulo, opcoes);
+      }
     }
   </script></body>
 </html>
