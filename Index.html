@@ -1,74 +1,151 @@
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>App Entregador</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>App Entregador — Hiper Entregas</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <style>
-    #map { height: 300px; }
+    #map { height: 320px; }
+    .pulse {
+      animation: pulse 1.2s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+      100% { transform: scale(1); }
+    }
   </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen">  <!-- Login -->  <div id="loginScreen" class="flex items-center justify-center h-screen">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen">
+
+  <!-- Login -->
+  <div id="loginScreen" class="flex items-center justify-center h-screen">
     <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl w-80">
       <h1 class="text-xl font-bold mb-4 text-center">Login do Entregador</h1>
-      <input id="username" type="text" placeholder="Usuário" class="w-full p-2 mb-2 border rounded">
+      <input id="username" type="text" placeholder="Usuário" class="w-full p-2 mb-2 border rounded" value="Matheus">
       <input id="password" type="password" placeholder="Senha" class="w-full p-2 mb-4 border rounded">
       <button onclick="login()" class="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded">Entrar</button>
     </div>
-  </div>  <!-- Dashboard -->  <div id="dashboard" class="hidden p-4 space-y-4">
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" class="hidden p-4 space-y-4 max-w-4xl mx-auto">
     <div class="flex justify-between items-center">
-      <h2 class="text-lg font-bold">Bem-vindo, <span id="userDisplay"></span></h2>
-      <button onclick="toggleDarkMode()" class="bg-gray-700 text-white px-3 py-1 rounded">🌙</button>
-    </div><div class="grid grid-cols-2 gap-4">
-  <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
-    <p class="text-gray-500">Saldo</p>
-    <h2 id="saldo" class="text-2xl font-bold">R$ 0,00</h2>
+      <div>
+        <h2 class="text-lg font-bold">Bem-vindo, <span id="userDisplay"></span></h2>
+        <p class="text-xs text-gray-500">Entregador • Hiper Entregas</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="toggleDarkMode()" class="bg-gray-700 text-white px-3 py-1 rounded">🌙</button>
+        <div class="flex items-center gap-2">
+          <label class="text-sm">Online</label>
+          <button id="onlineBtn" onclick="toggleOnline()" class="px-3 py-1 rounded bg-green-500 text-white">ON</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
+        <p class="text-gray-500 text-xs">Saldo</p>
+        <h2 id="saldo" class="text-2xl font-bold">R$ 0,00</h2>
+      </div>
+      <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
+        <p class="text-gray-500 text-xs">Entregas Hoje</p>
+        <h2 id="totalEntregas" class="text-2xl font-bold">0</h2>
+      </div>
+      <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
+        <p class="text-gray-500 text-xs">Pedidos Aguardando</p>
+        <h2 id="pedidosFila" class="text-2xl font-bold">0</h2>
+      </div>
+      <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
+        <p class="text-gray-500 text-xs">Última Entrega</p>
+        <h2 id="ultimaEntrega" class="text-xl font-medium">—</h2>
+      </div>
+    </div>
+
+    <!-- Mapa -->
+    <div id="map" class="rounded-xl shadow"></div>
+
+    <!-- Pedido atual -->
+    <div id="pedidoAtual" class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow hidden">
+      <div class="flex justify-between items-start">
+        <div>
+          <h3 class="font-bold mb-1">Novo Pedido 📦 <span id="pedidoValorBadge" class="ml-2 text-sm font-semibold"></span></h3>
+          <p id="pedidoInfo" class="text-sm text-gray-600"></p>
+          <p id="pedidoDist" class="text-xs text-gray-500 mt-1"></p>
+        </div>
+        <div class="text-right">
+          <div id="countdown" class="text-lg font-bold text-red-500">15s</div>
+          <div class="text-xs text-gray-500">para aceitar</div>
+        </div>
+      </div>
+
+      <div class="flex gap-2 mt-3">
+        <button id="aceitarBtn" onclick="aceitarPedido()" class="flex-1 bg-green-500 text-white p-2 rounded">Aceitar</button>
+        <button onclick="rejeitarPedido()" class="flex-1 bg-red-500 text-white p-2 rounded">Rejeitar</button>
+        <button id="navegarBtn" onclick="navegar()" class="bg-blue-600 text-white px-3 py-2 rounded">Navegar</button>
+      </div>
+    </div>
+
+    <!-- Histórico -->
+    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
+      <div class="flex justify-between items-center">
+        <h3 class="font-bold mb-2">Histórico de Entregas</h3>
+        <div class="flex items-center gap-2 text-sm">
+          <label>Som</label>
+          <input id="somToggle" type="checkbox" checked />
+          <label>Notificação</label>
+          <input id="notifToggle" type="checkbox" checked />
+        </div>
+      </div>
+      <ul id="historico" class="space-y-2 text-sm max-h-40 overflow-auto"></ul>
+    </div>
+
+    <!-- Resumo Diario -->
+    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow flex flex-col md:flex-row gap-4">
+      <div class="flex-1">
+        <h4 class="font-semibold">Resumo do Dia</h4>
+        <p class="text-sm text-gray-500">Ganhos: <span id="ganhosDia">R$ 0,00</span></p>
+        <p class="text-sm text-gray-500">Entregas: <span id="entregasDia">0</span></p>
+      </div>
+      <div class="flex-1">
+        <h4 class="font-semibold">Configurações</h4>
+        <p class="text-xs text-gray-500">Modo de simulação de pedidos: <button id="simToggle" onclick="toggleSim()" class="ml-2 px-2 py-1 rounded bg-gray-200">Ativo</button></p>
+      </div>
+    </div>
+
   </div>
-  <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
-    <p class="text-gray-500">Entregas</p>
-    <h2 id="totalEntregas" class="text-2xl font-bold">0</h2>
-  </div>
-</div>
 
-<!-- Mapa -->
-<div id="map" class="rounded-xl shadow"></div>
-
-<!-- Pedido atual -->
-<div id="pedidoAtual" class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow hidden animate-bounce">
-  <h3 class="font-bold mb-2">Novo Pedido 📦</h3>
-  <p id="pedidoInfo"></p>
-  <div class="flex gap-2 mt-2">
-    <button onclick="aceitarPedido()" class="flex-1 bg-green-500 text-white p-2 rounded">Aceitar</button>
-    <button onclick="rejeitarPedido()" class="flex-1 bg-red-500 text-white p-2 rounded">Rejeitar</button>
-  </div>
-</div>
-
-<!-- Histórico -->
-<div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
-  <h3 class="font-bold mb-2">Histórico de Entregas</h3>
-  <ul id="historico" class="space-y-2 text-sm"></ul>
-</div>
-
-  </div><audio id="notifSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+  <audio id="notifSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
 
   <script>
+    // --- Estado ---
     let saldo = 0;
     let totalEntregas = 0;
     let historico = [];
-    let map, marker;
+    let map, marker, entregaMarker, rotaLine, userMarker;
+    let pedidoAtivo = null;
+    let countdownInterval = null;
+    let online = true;
+    let simPedidos = true;
 
+    // --- Login ---
     function login(){
-      const user = document.getElementById('username').value;
+      const user = document.getElementById('username').value || 'Entregador';
       document.getElementById('userDisplay').innerText = user;
       document.getElementById('loginScreen').classList.add('hidden');
       document.getElementById('dashboard').classList.remove('hidden');
       initMap();
-      simularPedidos();
       pedirPermissaoNotificacao();
+      updateStatusIndicators();
+      if (simPedidos) simularPedidos();
+      localizarUsuario();
     }
 
+    // --- Map init ---
     function initMap(){
       map = L.map('map').setView([-20.4697, -54.6201], 13);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -76,31 +153,127 @@
       }).addTo(map);
     }
 
-    function simularPedidos(){
-      setInterval(()=>{
-        if(Math.random() > 0.5){
-          document.getElementById('pedidoAtual').classList.remove('hidden');
-          document.getElementById('pedidoInfo').innerText = "Retirada no KFC - Shopping CG → Entrega Vila Margarida (R$ 21,19)";
-          if(marker) map.removeLayer(marker);
-          marker = L.marker([-20.468, -54.620]).addTo(map).bindPopup("Pedido KFC").openPopup();
-          tocarNotificacao();
-          mostrarNotificacao("Novo pedido disponível!", { body: "R$ 21,19 para Vila Margarida" });
-        }
-      },10000);
+    // --- Geolocation (coloca marcador do entregador) ---
+    function localizarUsuario(){
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(pos => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        if (userMarker) map.removeLayer(userMarker);
+        userMarker = L.marker([lat,lng], {title: 'Você'}).addTo(map).bindPopup('Você está aqui');
+        map.setView([lat,lng], 14);
+      }, err => {
+        console.warn('Geolocalização não disponível:', err.message);
+      }, { enableHighAccuracy: true });
     }
 
+    // --- Simulação de pedidos ---
+    function simularPedidos(){
+      setInterval(()=>{
+        if (!online || !simPedidos) return;
+        // pequena chance de vir 0 pedidos
+        if (Math.random() > 0.35){
+          const pedidos = gerarPedidoAleatorio();
+          filaReceberPedido(pedidos);
+        }
+      }, 10000);
+    }
+
+    function gerarPedidoAleatorio(){
+      // coordenadas exemplares próximas
+      const pickups = [
+        {nome:'KFC - Shopping CG', lat:-20.4685, lng:-54.6202},
+        {nome:'Padaria Vila', lat:-20.475, lng:-54.615},
+        {nome:'Mercado Central', lat:-20.462, lng:-54.626}
+      ];
+      const deliveries = [
+        {nome:'Vila Margarida', lat:-20.4635, lng:-54.619},
+        {nome:'Conjunto Aero Rancho', lat:-20.478, lng:-54.630},
+        {nome:'Centro', lat:-20.466, lng:-54.620}
+      ];
+      const p = pickups[Math.floor(Math.random()*pickups.length)];
+      const d = deliveries[Math.floor(Math.random()*deliveries.length)];
+      const valor = (12 + Math.random()*25).toFixed(2);
+      return {
+        retirada: p,
+        entrega: d,
+        valor: parseFloat(valor)
+      };
+    }
+
+    function filaReceberPedido(pedido){
+      // se já existe pedido ativo, apenas incrementa contagem de fila
+      const filaEl = document.getElementById('pedidosFila');
+      let fila = parseInt(filaEl.innerText || '0');
+      if (pedidoAtivo) {
+        fila++;
+        filaEl.innerText = fila;
+        // opcional: empilhar notificações
+        if (document.getElementById('notifToggle').checked) mostrarNotificacao('Novo pedido na fila', {body:`${pedido.retirada.nome} → ${pedido.entrega.nome} R$ ${pedido.valor.toFixed(2)}`});
+        return;
+      }
+
+      // exibe pedido
+      pedidoAtivo = pedido;
+      document.getElementById('pedidoAtual').classList.remove('hidden');
+      document.getElementById('pedidoInfo').innerText = `${pedido.retirada.nome} → ${pedido.entrega.nome} (R$ ${pedido.valor.toFixed(2)})`;
+      document.getElementById('pedidoValorBadge').innerText = `R$ ${pedido.valor.toFixed(2)}`;
+      document.getElementById('pedidoDist').innerText = `Estimativa: ${calcularDistanciaTexto(pedido.retirada.lat,pedido.retirada.lng,pedido.entrega.lat,pedido.entrega.lng)}`;
+      posicionarMarcadores(pedido);
+      if (document.getElementById('somToggle').checked) tocarNotificacao();
+      if (document.getElementById('notifToggle').checked) mostrarNotificacao('Novo pedido disponível!', { body: `R$ ${pedido.valor.toFixed(2)} • ${pedido.entrega.nome}` });
+      iniciarContagem(15);
+    }
+
+    // --- Posiciona pickle/entrega no mapa e desenha rota simples (polyline) ---
+    function posicionarMarcadores(pedido){
+      if (marker) map.removeLayer(marker);
+      if (entregaMarker) map.removeLayer(entregaMarker);
+      if (rotaLine) map.removeLayer(rotaLine);
+
+      marker = L.marker([pedido.retirada.lat, pedido.retirada.lng]).addTo(map).bindPopup(`Retirada: ${pedido.retirada.nome}`).openPopup();
+      entregaMarker = L.marker([pedido.entrega.lat, pedido.entrega.lng]).addTo(map).bindPopup(`Entrega: ${pedido.entrega.nome}`);
+      // rota simples (linha reta para exemplo)
+      rotaLine = L.polyline([[pedido.retirada.lat, pedido.retirada.lng], [pedido.entrega.lat, pedido.entrega.lng]], {dashArray:'6 6'}).addTo(map);
+      map.fitBounds(rotaLine.getBounds().pad(0.4));
+    }
+
+    // --- Aceitar / Rejeitar ---
     function aceitarPedido(){
-      saldo += 21.19;
+      if (!pedidoAtivo) return;
+      saldo += pedidoAtivo.valor;
       totalEntregas++;
-      historico.push({valor:21.19, destino:"Vila Margarida"});
+      historico.unshift({valor:pedidoAtivo.valor, destino:pedidoAtivo.entrega.nome, hora: new Date().toLocaleTimeString()});
       atualizarDashboard();
-      document.getElementById('pedidoAtual').classList.add('hidden');
+      marcarEntregaConcluida(pedidoAtivo);
+      limparPedidoAtivo();
     }
 
     function rejeitarPedido(){
-      document.getElementById('pedidoAtual').classList.add('hidden');
+      // incrementa fila negativa? aqui só limpa e registra rejeição opcional
+      limparPedidoAtivo();
     }
 
+    function limparPedidoAtivo(){
+      // decrementa fila se houver
+      const filaEl = document.getElementById('pedidosFila');
+      let fila = parseInt(filaEl.innerText || '0');
+      if (fila > 0) filaEl.innerText = (fila-1);
+      document.getElementById('pedidoAtual').classList.add('hidden');
+      if (marker) { map.removeLayer(marker); marker = null; }
+      if (rotaLine) { map.removeLayer(rotaLine); rotaLine = null; }
+      pedidoAtivo = null;
+      pararContagem();
+    }
+
+    // --- Marcar entrega concluída (simulação) ---
+    function marcarEntregaConcluida(pedido){
+      document.getElementById('ultimaEntrega').innerText = `${pedido.entrega.nome} • R$ ${pedido.valor.toFixed(2)}`;
+      // marca no mapa posição de entrega com pequeno pulso
+      if (entregaMarker) entregaMarker.openPopup();
+    }
+
+    // --- Atualizar painéis ---
     function atualizarDashboard(){
       document.getElementById('saldo').innerText = `R$ ${saldo.toFixed(2)}`;
       document.getElementById('totalEntregas').innerText = totalEntregas;
@@ -108,29 +281,119 @@
       lista.innerHTML = '';
       historico.forEach((h,i)=>{
         const li = document.createElement('li');
-        li.innerText = `Entrega ${i+1}: ${h.destino} - R$ ${h.valor.toFixed(2)}`;
+        li.className = 'flex justify-between';
+        li.innerHTML = `<span>${h.hora} • ${h.destino}</span><span>R$ ${h.valor.toFixed(2)}</span>`;
         lista.appendChild(li);
       });
+      // resumo dia
+      document.getElementById('ganhosDia').innerText = `R$ ${saldo.toFixed(2)}`;
+      document.getElementById('entregasDia').innerText = totalEntregas;
     }
 
-    function toggleDarkMode(){
-      document.body.classList.toggle('dark');
+    // --- Toggle online/offline ---
+    function toggleOnline(){
+      online = !online;
+      updateStatusIndicators();
+    }
+    function updateStatusIndicators(){
+      const btn = document.getElementById('onlineBtn');
+      if (online){
+        btn.innerText = 'ON';
+        btn.classList.remove('bg-gray-400');
+        btn.classList.add('bg-green-500');
+      } else {
+        btn.innerText = 'OFF';
+        btn.classList.remove('bg-green-500');
+        btn.classList.add('bg-gray-400');
+      }
     }
 
+    // --- Contagem regressiva para aceitar pedido ---
+    function iniciarContagem(segundos){
+      pararContagem();
+      let t = segundos;
+      document.getElementById('countdown').innerText = `${t}s`;
+      countdownInterval = setInterval(()=>{
+        t--;
+        if (t <= 0){
+          pararContagem();
+          // auto-rejeita
+          rejeitarPedido();
+        } else {
+          document.getElementById('countdown').innerText = `${t}s`;
+        }
+      }, 1000);
+    }
+    function pararContagem(){
+      if (countdownInterval) clearInterval(countdownInterval);
+      document.getElementById('countdown').innerText = '';
+      countdownInterval = null;
+    }
+
+    // --- Notificações e som ---
     function tocarNotificacao(){
-      document.getElementById('notifSound').play();
+      const audio = document.getElementById('notifSound');
+      try { audio.currentTime = 0; audio.play(); } catch(e){ console.warn('não foi possível tocar som',e); }
     }
-
     function pedirPermissaoNotificacao(){
       if ("Notification" in window && Notification.permission !== "granted") {
         Notification.requestPermission();
       }
     }
-
     function mostrarNotificacao(titulo, opcoes){
-      if ("Notification" in window && Notification.permission === "granted") {
+      if (!("Notification" in window)) return;
+      if (Notification.permission === "granted" && document.getElementById('notifToggle').checked) {
         new Notification(titulo, opcoes);
       }
     }
-  </script></body>
-</html>
+
+    // --- Navegar (abre Google Maps com destino final) ---
+    function navegar(){
+      if (!pedidoAtivo) return;
+      const lat = pedidoAtivo.entrega.lat;
+      const lng = pedidoAtivo.entrega.lng;
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+      window.open(url, '_blank');
+    }
+
+    // --- Calcula distância aproximada (Haversine) e retorna texto ---
+    function calcularDistanciaTexto(lat1, lon1, lat2, lon2){
+      function toRad(v){ return v*Math.PI/180; }
+      const R = 6371; // km
+      const dLat = toRad(lat2-lat1);
+      const dLon = toRad(lon2-lon1);
+      const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)*Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const d = R * c; // km
+      if (d < 1) return `${Math.round(d*1000)} m`;
+      return `${d.toFixed(1)} km`;
+    }
+
+    // --- Botão para alternar simulação ---
+    function toggleSim(){
+      simPedidos = !simPedidos;
+      document.getElementById('simToggle').innerText = simPedidos ? 'Ativo' : 'Pausado';
+    }
+
+    // --- Auto salvar local (opcional) ---
+    window.addEventListener('beforeunload', ()=> {
+      localStorage.setItem('hiper_saldo', saldo);
+      localStorage.setItem('hiper_historico', JSON.stringify(historico));
+      localStorage.setItem('hiper_totalEntregas', totalEntregas);
+    });
+
+    // --- Carregar estado salvo (se houver) ---
+    (function carregarEstado(){
+      const s = parseFloat(localStorage.getItem('hiper_saldo')||0);
+      if (!isNaN(s)) saldo = s;
+      const h = JSON.parse(localStorage.getItem('hiper_historico')||'[]');
+      if (Array.isArray(h)) historico = h;
+      const te = parseInt(localStorage.getItem('hiper_totalEntregas')||'0');
+      if (!isNaN(te)) totalEntregas = te;
+      // atualizar UI se já logado
+      atualizarDashboard();
+    })();
+
+  </script>
+</body>
+          </html>
